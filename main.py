@@ -3,8 +3,9 @@ import logging
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import padding
-from telegram import Update, Bot
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+import pytz  # Import pytz for timezone handling
 
 # Enable logging
 logging.basicConfig(
@@ -60,22 +61,22 @@ def delete_files(file_paths):
             logger.info(f"Deleted: {file_path}")
 
 # Command handler for /start
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text(
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
         "Welcome to the File Encryption Bot! 🛡️\n\n"
         "Send me a file, and I will encrypt it for you. 🔒\n"
         "Send an encrypted file, and I will decrypt it for you. 🔓"
     )
 
 # Handle incoming documents (files)
-def handle_file(update: Update, context: CallbackContext):
+async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     logger.info(f"User {user.first_name} sent a file.")
 
     # Download the file
-    file = update.message.document.get_file()
+    file = await update.message.document.get_file()
     input_file = os.path.join(TEMP_DIR, file.file_id)
-    file.download(input_file)
+    await file.download_to_drive(input_file)
 
     # Determine if the file is encrypted (based on file extension or user input)
     if update.message.caption and "decrypt" in update.message.caption.lower():
@@ -90,34 +91,30 @@ def handle_file(update: Update, context: CallbackContext):
         action = "encrypted"
 
     # Send the processed file back to the user
-    update.message.reply_text(f"Your file has been {action}. 🔒")
-    update.message.reply_document(document=open(output_file, "rb"))
+    await update.message.reply_text(f"Your file has been {action}. 🔒")
+    await update.message.reply_document(document=open(output_file, "rb"))
 
     # Delete temporary files
     delete_files([input_file, output_file])
 
 # Error handler
-def error(update: Update, context: CallbackContext):
+async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.warning(f"Update {update} caused error {context.error}")
 
 # Main function to start the bot
 def main():
     # Replace 'YOUR_BOT_TOKEN' with your actual Telegram bot token
-    updater = Updater("7648055696:AAHm0jhbjOgzTtrxaFODLgkQ0C-WDwN81h8", use_context=True)
-
-    # Get the dispatcher to register handlers
-    dp = updater.dispatcher
+    application = Application.builder().token("7648055696:AAHm0jhbjOgzTtrxaFODLgkQ0C-WDwN81h8").build()
 
     # Register command and message handlers
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.document, handle_file))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.Document.ALL, handle_file))
 
     # Register error handler
-    dp.add_error_handler(error)
+    application.add_error_handler(error)
 
     # Start the bot
-    updater.start_polling()
-    updater.idle()
+    application.run_polling()
 
 if __name__ == "__main__":
     main()
