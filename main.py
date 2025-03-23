@@ -1,11 +1,11 @@
 import os
 import logging
-import base64
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import padding
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+import pytz  # Import pytz for timezone handling
 
 # Enable logging
 logging.basicConfig(
